@@ -97,11 +97,9 @@ class TestMyCase(unittest.TestCase):
         self._test_load_config_no_empty()
         with self.assertRaises(Exception) as ctx:
             self.test_server.load_config()
-            self.assertEqual('Warrning Error.', str(ctx.exception))
+            self.assertEqual('Error test load_data_from_config', str(ctx.exception))
 
-
-            # self.assertEqual('Error test load_data_from_config', str(ctx.exception))
-
+    # def test_main_server_
 
     def tearDownModule(self):
         pass

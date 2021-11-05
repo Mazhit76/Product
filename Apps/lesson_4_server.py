@@ -40,7 +40,9 @@ def main_server():
     server = Server()
 
     try:
+
         if '-p' in sys.argv:
+
             listen_port = int(sys.argv[sys.argv.index('-p') + 1])
         else:
             listen_port = CONFIGS.get('DEFAULT_IP_PORT')

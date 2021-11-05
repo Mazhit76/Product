@@ -11,6 +11,8 @@ class DataTests:
     value_limits_ip_port: tuple = field(default=(1024, 65535))
     test_ip_address: str = '127.0.0.1'
     test_ip_port: int = 7777
+    # clint_socket_with_default_ip_address_port = asdict(fd=7, family='AddressFamily.AF_INET', type='SocketKind.SOCK_STREAM',
+    #                                                    proto=0, laddr=('127.0.0.1', 7777), raddr=('127.0.0.1', 58960))
     test_message_server_ok = {'response': 200}
     test_message_server_err = {'response': 400, 'ERROR': 'Bad Request'}
     test_message_client_to_server = {'action': 'presence', 'time': time.time(),

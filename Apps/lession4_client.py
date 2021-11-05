@@ -36,6 +36,7 @@ def main():
     client = Client()
     try:
         server_address = sys.argv[1]
+
         server_port = int(sys.argv[2])
         if not 65535 >= server_port >= 1024:
             raise ValueError
