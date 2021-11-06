@@ -1,8 +1,9 @@
 import unittest
+from unittest import TestCase, main
 from Apps.lesson_4_server import Server
 from Apps.utils import ClientServer
 from data_for_tests import DataTests
-from lesson_4_server import main_server
+
 
 
 
@@ -20,10 +21,8 @@ class TestSocket:
 
 
 
-class TestMyCase(unittest.TestCase):
-    #
-    # def test_one(self):
-    #     self.assertEqual(1, 1)
+class TestMyCase(TestCase):
+
 
     def setUp(self):
         self.client_server = ClientServer()
@@ -32,13 +31,6 @@ class TestMyCase(unittest.TestCase):
         self.data_test = DataTests()
         self.testListNone = None
 
-    def testListSlicing(self):
-        self.assertRaises(TypeError, lambda: self.testListNone[:1])
-
-    def testListSlicing1(self):
-        with self.assertRaises(TypeError) as ctx:
-            self.testListNone[:1]
-            self.assertEqual("'NoneType' object is not subscriptable", str(ctx.exception))
 
     def tearDown(self):
         pass
@@ -99,7 +91,6 @@ class TestMyCase(unittest.TestCase):
             self.test_server.load_config()
             self.assertEqual('Error test load_data_from_config', str(ctx.exception))
 
-    # def test_main_server_
 
     def tearDownModule(self):
         pass
@@ -107,4 +98,4 @@ class TestMyCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

@@ -2,7 +2,7 @@ import json
 import os.path
 import sys
 import time
-
+from json.decoder import JSONDecodeError
 
 class ClientServer:
     def __init__(self, is_server=False):
@@ -47,41 +47,47 @@ class ClientServer:
                 sys.exit()
         return CONFIG
 
-    def serializer_to_byte(self, message, CONFIG):
+    def serializer_to_byte(self, message, CONFIG) -> bytes:
         if isinstance(message, dict):
             try:
                 json_message = json.dumps(message)
-            except ValueError:
-                print('Ошибка преобразования файла в json.')
-                return
-            return json_message.encode(CONFIG.get('ENCODING'))
+                return json_message.encode(CONFIG.get('ENCODING'))
+            except Exception:
+                raise ValueError('Ошибка преобразования файла в json. Возможно тип кодировки непраильный.')
         else:
-            raise ValueError
+            raise ValueError('Ошибка. На вход подан не словарь для преобразования в json.')
 
-    def serializer_off_byte(self, byte_str, CONFIG):
+    def serializer_off_byte(self, byte_str, CONFIG) -> dict:
         if isinstance(byte_str, bytes):
-            json_response = byte_str.decode(CONFIG.get('ENCODING'))
-            response_dict = json.loads(json_response)
-            response_dict['time'] = time.time()
-            if isinstance(response_dict, dict):
-                return response_dict
-            else:
-                raise ValueError
+            try:
+                json_response = byte_str.decode(CONFIG.get('ENCODING'))
+                try:
+                    response = json.loads(json_response)
+                    response['time'] = time.time()
+                    return response
+                except Exception:
+                    raise ValueError('Ошибка. На выходе преобразования json, находится не словарь.')
+
+            except (JSONDecodeError, LookupError):
+                raise ValueError('Ошибка преобразования файла из json в словарь. Возможно тип кодировки неправильный.')
         else:
-            raise ValueError
+            raise ValueError('Ошибка. На вход подан не байтовая строк для преобразования в словарь.')
 
     def send_messages(self, opened_socked, byte_str):
         if isinstance(byte_str, bytes):
-            opened_socked.send(byte_str)
+            try:
+                opened_socked.send(byte_str)
+            except Exception:
+                raise ValueError('Ошибка отправки соккета возможно, соккет закрыт.')
         else:
-            raise ValueError
+            raise ValueError('На вход поступило не байтовая строка')
 
     def get_message(self, opened_socket, CONFIG):
-        try:
-            response = opened_socket.recv(CONFIG.get('MAX_PACKAGE_LENGTH'))
-            if isinstance(response, bytes):
-                return response
-            else:
-                raise ValueError
-        except Exception:
-            print('Error converting to send socket!!!')
+        if isinstance(CONFIG.get('MAX_PACKAGE_LENGTH'), int):
+            if CONFIG.get('MAX_PACKAGE_LENGTH') <= 1024 and CONFIG.get('MAX_PACKAGE_LENGTH') > 0:
+                try:
+                    return opened_socket.recv(CONFIG.get('MAX_PACKAGE_LENGTH'))
+                except Exception:
+                    raise ValueError('Ошибка. Возможно сокке закрыт.')
+            raise ValueError('Размер данных для сокете слишком большой или отрицательный')
+        raise ValueError('Размер данных для сокете не в виде числа')
