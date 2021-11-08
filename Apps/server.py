@@ -4,13 +4,14 @@ import os
 import socket
 import sys
 import time
+from decos import Log
 sys.path.append(os.path.join(os.getcwd(), '..'))
 from Logs import log_config_server
 from utils import ClientServer
 
 
-LOG = logging.getLogger('app_server.main')
-
+LOG = logging.getLogger('server')
+@Log()
 def global_configs():
     global CONFIGS
     client = ClientServer()
@@ -22,7 +23,7 @@ class Server(ClientServer):
     def __init__(self, is_server=True, CONFIGS=global_configs()):
         super().__init__(is_server)
         self.CONFIG = CONFIGS
-
+    @Log()
     def handle_message(self, message):
 
         if self.CONFIG.get('ACTION') in message \
@@ -39,9 +40,9 @@ class Server(ClientServer):
             self.CONFIG.get('ERROR'): 'Bad Request'
         }
 
-
+@Log()
 def main_server():
-    LOG.debug('START APPS lesson_4_server.py')
+    LOG.debug('START APPS server.py')
 
     client = ClientServer()
     CONFIGS = global_configs()
@@ -84,7 +85,7 @@ def main_server():
                 byte_str = server.get_message(client_socket, CONFIGS)
                 message = server.serializer_off_byte(byte_str, CONFIGS)
 
-                print(message)
+                LOG.debug(f'Отправленно сообщение: {message}')
                 response = server.handle_message(message)
 
                 byte_str = server.serializer_to_byte(response, CONFIGS)

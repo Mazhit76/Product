@@ -5,22 +5,24 @@ import re
 import socket
 import sys
 import time
+from decos import Log
 
 sys.path.append(os.path.join(os.getcwd(), '..'))
 sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Logs')
 from Logs import log_config_client
 from utils import ClientServer
 
-LOG = logging.getLogger('app_client.main')
+LOG = logging.getLogger('client')
 
 
+@Log()
 def global_configs():
     global CONFIGS
     server = ClientServer()
     CONFIGS = server.load_config()
     return CONFIGS
 
-
+@Log()
 def assert_ip(ip):
     if not re.match(r'^(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
                     r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
@@ -35,7 +37,7 @@ class Client(ClientServer):
     def __init__(self, is_server=False, CONFIGS=global_configs()):
         super().__init__(is_server)
         self.CONFIG = CONFIGS
-
+    @Log()
     def create_presence_message(self, account_name):
         message = {
             self.CONFIG.get('ACTION'): self.CONFIG.get('PRESENCE'),
@@ -45,7 +47,7 @@ class Client(ClientServer):
             }
         }
         return message
-
+    @Log()
     def handle_responce(self, message):
         if self.CONFIG.get('RESPONSE') in message:
             if message[self.CONFIG.get('RESPONSE')] == 200:
@@ -55,7 +57,7 @@ class Client(ClientServer):
             else:
                 raise ValueError('Unknown kode in response!!!')
         raise ValueError('No response in message!!!')
-
+    @Log()
     def get_ip_port_on_console(self):
         try:
             server_address = sys.argv[1]
@@ -74,7 +76,7 @@ class Client(ClientServer):
             raise ValueError('Порт должен находится в переделах о 1024 до 65535')
             sys.exit(1)
 
-
+@Log()
 def main():
     LOG.debug('Start app client.py')
 
@@ -84,7 +86,7 @@ def main():
     client = Client()
 
     server_address, server_port = client.get_ip_port_on_console()
-    print(f'{server_address}, {type(server_port)}')
+    LOG.debug(f'IP:  {server_address}, port:  {server_port}')
     transport = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     transport.connect((server_address, server_port))
     presence_message = client.create_presence_message('Guest')
@@ -97,10 +99,9 @@ def main():
         response = server.serializer_off_byte(byte_str, CONFIGS)
 
         handled_response = client.handle_responce(response)
-        print(f'Ответ от сервера: {response}')
-        print(handled_response)
+        LOG.debug(f'Ответ от сервера: {response} handled_response: {handled_response}')
     except(ValueError, json.JSONDecodeError):
-        print('Ошибка декодирования')
+        LOG.error('Ошибка декодирования')
 
 
 if __name__ == '__main__':

@@ -15,16 +15,15 @@ PARAMS = {'hosts': '127.0.0.1', 'port': 7777}
 
 # Create loger
 
-logger = logging.getLogger('app_utils.main')
+logger = logging.getLogger('utils')
 formatter = logging.Formatter('%(levelname)-15s %(asctime)s %(message)s')
 logger.setLevel(logging.DEBUG)
 
 
 # Create file handler log with rotation big file
 
-fl = logging.FileHandler(PATH,
-                         encoding='utf-8')
-fl.setLevel(logging.ERROR)
+fl = logging.FileHandler(PATH, mode='w', encoding='utf-8')
+fl.setLevel(logging.DEBUG)
 fl.setFormatter(formatter)
 
 
@@ -39,7 +38,7 @@ sl.setFormatter(formatter)
 # Create handler TimeRotationHandler and RotatingFileHandler
 
 handler_time = TimedRotatingFileHandler(PATH, when='D')   # Every day rotation file
-handler_time.setLevel(logging.ERROR)
+handler_time.setLevel(logging.DEBUG)
 handler_time.setFormatter(formatter)
 # handler_file = RotatingFileHandler(PATH, maxBytes=99999,  backupCount=10, encoding='utf-8')
 # handler_file.setLevel(logging.ERROR)

@@ -1,6 +1,6 @@
 import sys
 from unittest import TestCase, main
-from Apps.lesson4_client import Client
+from Apps.client import Client
 from Apps.utils import ClientServer
 from data_for_tests import DataTests
 from unittest.mock import patch, create_autospec, Mock
@@ -40,13 +40,13 @@ class MyTestCase(TestCase):
             self.test_client.handle_responce(self.data_test.test_message_server_ok)
         self.assertEqual('Unknown kode in response!!!', e.exception.args[0])
 
-    @patch('sys.argv', ['lesson4_client.py', '1.1.1.1', '900'])
+    @patch('sys.argv', ['client.py', '1.1.1.1', '900'])
     def test_get_great_port_console_input(self):
         with self.assertRaises(ValueError) as e:
             self.test_client.get_ip_port_on_console()
         self.assertEqual('Порт должен находится в переделах о 1024 до 65535', e.exception.args[0])
 
-    @patch('sys.argv', ['lesson4_client.py', '11.1.1', '9000'])
+    @patch('sys.argv', ['client.py', '11.1.1', '9000'])
     def test_get_bad_ip_console_input(self):
         with self.assertRaises(TypeError) as e:
             self.test_client.get_ip_port_on_console()

@@ -1,6 +1,6 @@
 import unittest
 from unittest import TestCase, main
-from Apps.lesson_4_server import Server
+from Apps.server import Server
 from Apps.utils import ClientServer
 from data_for_tests import DataTests
 

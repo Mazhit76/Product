@@ -4,7 +4,7 @@ import time
 import unittest
 from dataclasses import dataclass, asdict, astuple, field
 from unittest.mock import Mock, call, MagicMock, patch
-from Apps.lesson_4_server import Server
+from Apps.server import Server
 
 
 @dataclass
@@ -30,5 +30,5 @@ class DataTests:
     test_message_client_to_server_bag_user = {'action': 'presence', 'time': time.time(),
                                               'user': {'account_name': ''}}
 
-    test_sys_argv = ['lesson4_client.py', '1.1.1.1', '9000']
+    test_sys_argv = ['client.py', '1.1.1.1', '9000']
 

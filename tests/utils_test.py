@@ -1,7 +1,12 @@
+import os
 from unittest import TestCase, main
 from unittest.mock import patch, create_autospec, Mock
+
+import sys
+
 from data_for_tests import DataTests
 from Apps.utils import ClientServer
+
 
 class TestUtils(TestCase):
 
