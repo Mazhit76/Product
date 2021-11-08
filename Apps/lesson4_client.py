@@ -1,16 +1,34 @@
 import json
+import logging
+import os
 import re
 import socket
 import sys
 import time
 
+sys.path.append(os.path.join(os.getcwd(), '..'))
+sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Logs')
+from Logs import log_config_client
 from utils import ClientServer
+
+LOG = logging.getLogger('app_client.main')
+
 
 def global_configs():
     global CONFIGS
     server = ClientServer()
     CONFIGS = server.load_config()
     return CONFIGS
+
+
+def assert_ip(ip):
+    if not re.match(r'^(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))$', ip):
+        raise TypeError('You input IP address unsuitable!!!')
+    return True
+
 
 class Client(ClientServer):
 
@@ -38,18 +56,10 @@ class Client(ClientServer):
                 raise ValueError('Unknown kode in response!!!')
         raise ValueError('No response in message!!!')
 
-    def assert_ip(self, ip):
-        if not re.match(r'^(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
-                        r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
-                        r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
-                        r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))$', ip):
-            raise TypeError('You input IP address unsuitable!!!')
-        return True
-
     def get_ip_port_on_console(self):
         try:
             server_address = sys.argv[1]
-            if not self.assert_ip(server_address):
+            if not assert_ip(server_address):
                 print('IP адресс неверная размерность')
                 sys.exit(1)
             server_port = int(sys.argv[2])
@@ -66,13 +76,15 @@ class Client(ClientServer):
 
 
 def main():
+    LOG.debug('Start app client.py')
+
     global CONFIGS
     server = ClientServer()
-    CONFIGS = server.load_config()
+    CONFIGS = global_configs()
     client = Client()
 
     server_address, server_port = client.get_ip_port_on_console()
-
+    print(f'{server_address}, {type(server_port)}')
     transport = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     transport.connect((server_address, server_port))
     presence_message = client.create_presence_message('Guest')
@@ -89,7 +101,6 @@ def main():
         print(handled_response)
     except(ValueError, json.JSONDecodeError):
         print('Ошибка декодирования')
-
 
 
 if __name__ == '__main__':

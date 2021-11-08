@@ -1,9 +1,15 @@
 import json
+import logging
+import os
 import socket
 import sys
 import time
-
+sys.path.append(os.path.join(os.getcwd(), '..'))
+from Logs import log_config_server
 from utils import ClientServer
+
+
+LOG = logging.getLogger('app_server.main')
 
 def global_configs():
     global CONFIGS
@@ -35,6 +41,8 @@ class Server(ClientServer):
 
 
 def main_server():
+    LOG.debug('START APPS lesson_4_server.py')
+
     client = ClientServer()
     CONFIGS = global_configs()
     server = Server()
@@ -49,10 +57,10 @@ def main_server():
         if not 65535 >= listen_port >= 1024:
             raise ValueError
     except IndexError:
-        print('После -\'р\' необходимо указать порт')
+        LOG.warning('После -\'р\' необходимо указать порт')
         sys.exit(1)
     except ValueError:
-        print('Порт должен находится в переделах о 1024 до 65535')
+        LOG.warning(f'Порт должен находится в переделах о 1024 до 65535. Получено: {sys.argv}')
         sys.exit(1)
 
     try:
@@ -62,7 +70,7 @@ def main_server():
             listen_address = CONFIGS.get('DEFAULT_IP_ADDRESS')
 
     except IndexError:
-        print('После \'a\' - необходимо ставить ip адрес соедения')
+        LOG.warning(f'После \'a\' - необходимо ставить ip адрес соедения. Получено: {sys.argv}')
         sys.exit(1)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -83,7 +91,7 @@ def main_server():
                 client.send_messages(client_socket, byte_str)
 
             except (ValueError, json.JSONDecodeError):
-                print('Принято неккоректное сообщение от клиента')
+                LOG.warning('Принято неккоректное сообщение от клиента')
 
             finally:
                 client_socket.close()
