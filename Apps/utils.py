@@ -1,6 +1,8 @@
 import json
 import logging
 import os.path
+import re
+
 import sys
 import time
 from json.decoder import JSONDecodeError
@@ -11,6 +13,16 @@ LOG = logging.getLogger('utils')
 
 sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Data/..')
 
+
+
+@Log()
+def assert_ip(ip):
+    if not re.match(r'^(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.'
+                    r'(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))$', ip):
+        raise TypeError('You input IP address unsuitable!!!')
+    return True
 
 class ClientServer:
     def __init__(self, is_server=False):
@@ -121,3 +133,24 @@ class ClientServer:
         LOG.error(
             f'Размер данных для сокете не в виде числа {CONFIG.get("MAX_PACKAGE_LENGTH")} socket: {opened_socket}')
         raise ValueError('Размер данных для сокете не в виде числа')
+
+
+    @Log()
+    def get_ip_port_on_console(self):
+        try:
+            server_address = sys.argv[1]
+            if not assert_ip(server_address):
+                LOG.error('IP адресс неверная размерность')
+                sys.exit(1)
+            server_port = int(sys.argv[2])
+            if not 65535 >= server_port >= 1024:
+                raise ValueError
+            return server_address, server_port
+        except IndexError:
+            self.CONFIG = self.load_config()
+            server_address = self.CONFIG.get('DEFAULT_IP_ADDRESS')
+            server_port = self.CONFIG.get('DEFAULT_IP_PORT')
+            return server_address, server_port
+        except ValueError:
+            LOG.error('Порт должен находится в переделах о 1024 до 65535')
+            raise ValueError('Порт должен находится в переделах о 1024 до 65535')

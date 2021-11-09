@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import select
 import socket
 import sys
 import time
@@ -20,11 +21,13 @@ def global_configs():
 
 class Server(ClientServer):
 
-    def __init__(self, is_server=True, CONFIGS=global_configs()):
+    def __init__(self, is_server=True, configs=global_configs(), client_socket = None, server = None):
         super().__init__(is_server)
-        self.CONFIG = CONFIGS
+        self.client_socket = client_socket
+        self.server = server
+        self.CONFIG = configs
     @Log()
-    def handle_message(self, message):
+    def handle_message(self, message, messages_list, client):
 
         if self.CONFIG.get('ACTION') in message \
                 and message[self.CONFIG.get('ACTION')] == self.CONFIG.get('PRESENCE')\
@@ -34,11 +37,20 @@ class Server(ClientServer):
                 and self.CONFIG.get('USER') in message \
                 and message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')] == 'Guest':
             return {self.CONFIG.get('RESPONSE'): 200}
-
-        return {
+        elif self.CONFIG.get('ACTION') in message \
+                and message[self.CONFIG.get('ACTION')] == self.CONFIG.get('MESSAGE') \
+                and self.CONFIG.get('TIME') in message \
+                and self.CONFIG.get('MESSAGE') in message:
+            messages_list.append((message[self.CONFIG.get('ACCOUNT_NAME')], message[self.CONFIG.get('MESSAGE_TEXT')]))
+            return
+        else:
+            bad_request = {
             self.CONFIG.get('RESPONSE'): 400,
             self.CONFIG.get('ERROR'): 'Bad Request'
         }
+            byte_str = self.server.serializer_to_byte(bad_request, CONFIGS)
+            client.send_messages(self.client_socket, byte_str)
+            LOG.debug(f'Отправленно сообщение: {message}')
 
 @Log()
 def main_server():
@@ -48,54 +60,70 @@ def main_server():
     CONFIGS = global_configs()
     server = Server()
 
-    try:
-
-        if '-p' in sys.argv:
-
-            listen_port = int(sys.argv[sys.argv.index('-p') + 1])
-        else:
-            listen_port = CONFIGS.get('DEFAULT_IP_PORT')
-        if not 65535 >= listen_port >= 1024:
-            raise ValueError
-    except IndexError:
-        LOG.warning('После -\'р\' необходимо указать порт')
-        sys.exit(1)
-    except ValueError:
-        LOG.warning(f'Порт должен находится в переделах о 1024 до 65535. Получено: {sys.argv}')
-        sys.exit(1)
-
-    try:
-        if '-a' in sys.argv:
-            listen_address = sys.argv[sys.argv.index('-a') + 1]
-        else:
-            listen_address = CONFIGS.get('DEFAULT_IP_ADDRESS')
-
-    except IndexError:
-        LOG.warning(f'После \'a\' - необходимо ставить ip адрес соедения. Получено: {sys.argv}')
-        sys.exit(1)
+    listen_address, listen_port = client.get_ip_port_on_console()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((listen_address, int(listen_port)))
-
         s.listen(CONFIGS.get('MAX_CONNECTIONS'))
+        clients = []
+        messages = []
+
+        # set timeout reset with OSError
+        s.settimeout(1)
 
         while True:
-            client_socket, client_address = s.accept()
             try:
-                byte_str = server.get_message(client_socket, CONFIGS)
-                message = server.serializer_off_byte(byte_str, CONFIGS)
+                client.client_socket, client.client_address = s.accept()
+            except OSError:
+                pass
+            else:
+                LOG.debug(f'Установлено соедение с Клиентом {client.client_address}')
+                clients.append(client.client_address)
 
-                LOG.debug(f'Отправленно сообщение: {message}')
-                response = server.handle_message(message)
+            recv_data_lst = []
+            send_data_lst = []
+            err_lst = []
+            try:
+                if clients:
+                    recv_data_lst, send_data_lst, err_lst = select.select(clients, clients, err_lst, 0)
+            except OSError:
+                pass
+            # take messages to dict. and send to every clients? if error exclude client.
+            if recv_data_lst:
+                for client_with_messages in recv_data_lst:
+                    try:
+                        # append message to list. If not else send bad request.
+                        byte_str = server.get_message(client.client_socket, CONFIGS)
+                        message = server.serializer_off_byte(byte_str, CONFIGS)
+                        server.handle_message(message)
 
-                byte_str = server.serializer_to_byte(response, CONFIGS)
-                client.send_messages(client_socket, byte_str)
+                    except:
+                        LOG.debug(f'Клиент {client_with_messages.getpeername()} отключился от сервера')
+                        clients.remove()
 
-            except (ValueError, json.JSONDecodeError):
-                LOG.warning('Принято неккоректное сообщение от клиента')
 
-            finally:
-                client_socket.close()
+            if messages and send_data_lst:
+                try:
+                    message = {
+                        CONFIGS.get('ACTION'): 'MESSAGE',
+                        CONFIGS.get('SENDER'): messages[0][0],
+                        CONFIGS.get('TIME'): time.time(),
+                        CONFIGS.get('MESSAGE_TEXT'): messages[0][1]
+                    }
+                    del messages[0]
+                    for waiting_client in send_data_lst:
+                        try:
+                            byte_str = server.serializer_to_byte(message, CONFIGS)
+                            client.send_messages(client.client_socket, byte_str)
+                            LOG.debug(f'Отправленно сообщение: {message}')
+                        except:
+                            LOG.debug(f'Клиент {client_with_messages.getpeername()} отключился от сервера')
+                            waiting_client.close()
+                            clients.remove(waiting_client)
+
+                except (ValueError, json.JSONDecodeError):
+                    LOG.warning('Принято неккоректное сообщение от клиента')
+
 
 
 if __name__ == '__main__':
