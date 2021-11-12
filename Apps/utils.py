@@ -11,7 +11,8 @@ from Logs import log_config_utils
 
 LOG = logging.getLogger('utils')
 
-sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Data/..')
+sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Apps/..')
+sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Data/config.json')
 
 
 

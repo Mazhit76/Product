@@ -9,6 +9,7 @@ from decos import Log
 
 sys.path.append(os.path.join(os.getcwd(), '..'))
 sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Logs')
+
 from Logs import log_config_client
 from utils import ClientServer
 
@@ -76,6 +77,7 @@ def main():
 
         handled_response = client.handle_responce(response)
         LOG.debug(f'Ответ от сервера: {response} handled_response: {handled_response}')
+        input()
     except(ValueError, json.JSONDecodeError):
         LOG.error('Ошибка декодирования')
 
