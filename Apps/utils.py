@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os.path
@@ -26,6 +27,7 @@ def assert_ip(ip):
     return True
 
 class ClientServer:
+    __slots__ = ('CONFIG', 'is_server', 'config_keys', 'client_socket', 'client_address', 'server')
     def __init__(self, is_server=False):
         self.CONFIG = {}
         self.is_server = is_server
@@ -139,18 +141,24 @@ class ClientServer:
     @Log()
     def get_ip_port_on_console(self):
         try:
-            server_address = sys.argv[1]
+            parser = argparse.ArgumentParser()
+            parser.add_argument('addr', default=self.load_config().get('DEFAULT_IP_ADDRESS'), nargs='?')
+            parser.add_argument('port', default=self.load_config().get('DEFAULT_IP_PORT'), type=int, nargs='?')
+            parser.add_argument('-n', '--name', default=None, nargs='?')
+            namespace = parser.parse_args(sys.argv[1:])
+            client_name = namespace.name
+            server_address = namespace.addr
             if not assert_ip(server_address):
                 LOG.error('IP адресс неверная размерность')
                 sys.exit(1)
-            server_port = int(sys.argv[2])
+            server_port = namespace.port
             if not 65535 >= server_port >= 1024:
                 raise ValueError
-            return server_address, server_port
+            return server_address, server_port, client_name
         except IndexError:
-            self.CONFIG = self.load_config()
-            server_address = self.CONFIG.get('DEFAULT_IP_ADDRESS')
-            server_port = self.CONFIG.get('DEFAULT_IP_PORT')
+            # self.CONFIG = self.load_config()
+            # server_address = self.CONFIG.get('DEFAULT_IP_ADDRESS')
+            # server_port = self.CONFIG.get('DEFAULT_IP_PORT')
             return server_address, server_port
         except ValueError:
             LOG.error('Порт должен находится в переделах о 1024 до 65535')

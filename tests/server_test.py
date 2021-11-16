@@ -1,9 +1,11 @@
 import unittest
 from unittest import TestCase, main
+from unittest.mock import patch, MagicMock
+
 from Apps.server import Server
+from Apps.client import Client
 from Apps.utils import ClientServer
 from data_for_tests import DataTests
-
 
 
 
@@ -19,18 +21,18 @@ class TestSocket:
         self.received_message = None
 
 
-
-
 class TestMyCase(TestCase):
 
+    def __init__(self, methodName: str = ...):
+        super().__init__(methodName)
 
     def setUp(self):
         self.client_server = ClientServer()
         self.test_server = Server()
+        self.test_client = Client()
         self.data_from_config: dict = self.test_server.load_config()
         self.data_test = DataTests()
         self.testListNone = None
-
 
     def tearDown(self):
         pass
@@ -57,15 +59,19 @@ class TestMyCase(TestCase):
                          'Default ip port is not 7777')
 
     def test_message_from_client_answer_ok(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_good),
+        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_good,
+                                                             self.test_server, self.test_client),
                              self.data_test.test_message_server_ok)
 
+    # @patch.object(ClientServer, 'send_messages', {'response': 400, 'ERROR': 'Bad Request'})
     def _test_message_from_client_answer_bad_action(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_action),
+            self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_action,
+                                                             self.test_server, self.test_client),
                              self.data_test.test_message_server_err)
 
     def _test_message_from_client_answer_bad_time(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_time),
+        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_time,
+                                                             self.test_server, self.test_client),
                              self.data_test.test_message_server_err)
 
     def _test_message_from_client_answer_time_bad_type(self):
@@ -73,14 +79,29 @@ class TestMyCase(TestCase):
                                                                                                     'is not float!!!')
 
     def _test_message_from_client_answer_bad_user(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_user),
+        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_user,
+                                                             self.test_server, self.test_client),
                              self.data_test.test_message_server_err)
+
+
+    def test_send_byte_exchange(self):
+        self.assertIsInstance(self.client_server.serializer_to_byte(self.data_test.test_message_server_ok, self.data_from_config),
+                              bytes)
+
+    @patch.object(ClientServer, 'serializer_to_byte', b'str')
+    @patch.object(ClientServer, 'send_messages', 'ok')
+    def test_send(self):
+        self.assertEqual(self.client_server.serializer_to_byte, b'str')
+        self.assertEqual(self.client_server.send_messages, 'ok')
+
+
+
 
     def test_handle_message_server(self):
         self._test_message_from_client_answer_bad_action()
         self._test_message_from_client_answer_bad_time()
         self._test_message_from_client_answer_time_bad_type()
-        self._test_message_from_client_answer_bad_user()
+        # self._test_message_from_client_answer_bad_user()
 
     def _test_load_config_no_empty(self):
         self.assertNotEqual(self.data_from_config, {}, "Output dict from test load_data_from_config is empty")
@@ -91,10 +112,8 @@ class TestMyCase(TestCase):
             self.test_server.load_config()
             self.assertEqual('Error test load_data_from_config', str(ctx.exception))
 
-
     def tearDownModule(self):
         pass
-
 
 
 if __name__ == "__main__":
