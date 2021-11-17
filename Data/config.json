@@ -15,7 +15,7 @@
 "PRESENCE": "presence",
 "RESPONSE": "response",
 "ERROR": "ERROR",
-"MESSAGE": "message:",
+"MESSAGE": "message",
 "MESSAGE_TEXT": "mess_text",
 "EXIT": "exit",
 "RESPONSE_200":{"RESPONSE": 200},

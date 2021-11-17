@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 import socket
 import threading
 
@@ -9,11 +8,10 @@ import sys
 import time
 from decos import Log
 from errors import IncorrectDataRecivedError
-
+sys.path.append('../')
 sys.path.append(os.path.join(os.getcwd(), '..'))
 sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Logs')
 
-from Logs import log_config_client
 from utils import ClientServer
 
 LOG = logging.getLogger('client')
@@ -174,12 +172,25 @@ def main():
     except(ValueError, json.JSONDecodeError):
         LOG.error('Ошибка декодирования')
     else:
-        client.message_from_server(transport, client_name)
-        # receiver = threading.Thread(target=client.message_from_server, args=(transport, client_name))
-        # receiver.daemon = True
-        # receiver.start()
+        # Start connect with server and threading process
+        receiver = threading.Thread(target=client.message_from_server, args=(transport, client_name))
+        receiver.daemon = True
+        receiver.start()
 
+        # Start send messages and interactive with user
+        client.user_interactive(transport, client_name)
+        user_interface = threading.Thread(target=client.user_interactive, args=(transport, client_name))
+        user_interface.daemon = True
+        user_interface.start()
+        LOG.debug('Запущены процессы')
+
+        # Loop while two threading is alive
+        while True:
+            time.sleep(1)
+            if receiver.is_alive() and user_interface.is_alive():
+                continue
+            break
 
 if __name__ == '__main__':
     main()
-    input()
+

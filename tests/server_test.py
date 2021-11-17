@@ -1,6 +1,6 @@
-import unittest
+
 from unittest import TestCase, main
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from Apps.server import Server
 from Apps.client import Client
@@ -88,8 +88,8 @@ class TestMyCase(TestCase):
         self.assertIsInstance(self.client_server.serializer_to_byte(self.data_test.test_message_server_ok, self.data_from_config),
                               bytes)
 
-    @patch.object(ClientServer, 'serializer_to_byte', b'str')
-    @patch.object(ClientServer, 'send_messages', 'ok')
+    @patch.object(ClientServer, 'serializer_to_byte', b'str', spec=ClientServer)
+    @patch.object(ClientServer, 'send_messages', 'ok', spec=ClientServer)
     def test_send(self):
         self.assertEqual(self.client_server.serializer_to_byte, b'str')
         self.assertEqual(self.client_server.send_messages, 'ok')

@@ -3,18 +3,17 @@ import json
 import logging
 import os.path
 import re
+from json.decoder import JSONDecodeError
 
 import sys
 import time
-from json.decoder import JSONDecodeError
+
 from decos import Log
-from Logs import log_config_utils
 
 LOG = logging.getLogger('utils')
-
-sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Apps/..')
-sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Data/config.json')
-
+sys.path.append('../')
+sys.path.append(os.path.join(os.getcwd(), '..'))
+sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/')
 
 
 @Log()
@@ -163,3 +162,8 @@ class ClientServer:
         except ValueError:
             LOG.error('Порт должен находится в переделах о 1024 до 65535')
             raise ValueError('Порт должен находится в переделах о 1024 до 65535')
+
+    @Log()
+    def send(self, message, to_client):
+        byte_str = self.serializer_to_byte(message, self.CONFIG)
+        self.send_messages(to_client, byte_str)

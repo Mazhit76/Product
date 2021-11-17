@@ -1,4 +1,4 @@
-import json
+
 import logging
 import os
 import select
@@ -8,7 +8,7 @@ import time
 from decos import Log
 
 sys.path.append(os.path.join(os.getcwd(), '..'))
-from Logs import log_config_server
+
 from utils import ClientServer
 
 LOG = logging.getLogger('server')
@@ -33,43 +33,63 @@ class Server(ClientServer):
         self.server = server
 
     @Log()
-    def handle_message(self, message, client, server):
+    def process_client_message(self, message, messages_list, client, clients, names):
+
         """
-        :param message: message from client
-        :param messages_list:  list out messages. If message bad send bad request
-        :param client: class
-        :return: None
+        :param message: сообщение от клинета
+        :param messages_list:  список сообщений на отправку
+        :param client: новый запрос на подключение
+        :param clients: список из сокетов, активных подключений
+        :param names: словарь имен и соккетов пользователей активных подключений
+        :return: словарь сообщение
         """
 
         if self.CONFIG.get('ACTION') in message \
                 and message[self.CONFIG.get('ACTION')] == self.CONFIG.get('PRESENCE') \
                 and self.CONFIG.get('TIME') in message \
                 and isinstance(message[self.CONFIG.get('TIME')], float) \
-                and message[self.CONFIG.get('TIME')] >= time.time() - self.CONFIG.get('DELTA_TIME_SERVER_ANSWER') \
-                and self.CONFIG.get('USER') in message:
-            # and message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')] == 'Guest':
-            return {self.CONFIG.get('RESPONSE'): 200}
+                and message[self.CONFIG.get('TIME')] >= time.time() - self.CONFIG.get('DELTA_TIME_SERVER_ANSWER'):
+            # Если клиент нет в списке, то регистрирум и отправляем сообщение о подключении
+            # Иначе удаляем и отправляем ошибку запроса
+            if self.CONFIG.get('USER') in message \
+                    and (message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')] not in names.keys()):
+                names[message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')]] = client
+                self.send({self.CONFIG.get('RESPONSE'): 200}, client)
+            else:
+                _response = {
+                    self.CONFIG.get('RESPONSE'): 400,
+                    self.CONFIG.get('ERROR'): 'Username is already takenBad Request'
+                }
+                self.send(_response, client)
+                clients.remove(client)
+                client.close()
+            return
+        #     Если это сообщение, то добавляем в очередь сообщений. Овета клиенту нет.
         elif self.CONFIG.get('ACTION') in message \
                 and message[self.CONFIG.get('ACTION')] == self.CONFIG.get('MESSAGE') \
                 and self.CONFIG.get('TIME') in message \
-                and self.CONFIG.get('MESSAGE') in message:
-            client.to_message.append(
-                (message[self.CONFIG.get('ACCOUNT_NAME')], str.upper(message[self.CONFIG.get('MESSAGE_TEXT')])))
+                and self.CONFIG.get('SENDER') in message \
+                and self.CONFIG.get('DESTINATION') in message \
+                and self.CONFIG.get('MESSAGE_TEXT') in message:
+            messages_list.append(message)
             return
+        # Если поступило сообщение о выходе клиента удаляем его
+        elif self.CONFIG.get('ACTION') in message and message[self.CONFIG.get('ACTION')] == self.CONFIG.get("EXIT") \
+                and (self.CONFIG.get('ACCOUNT_NAME') in message):
+            clients.remove(names[message[self.CONFIG.get('ACCOUNT_NAME')]])
+            names[message.get(self.CONFIG.get('ACCOUNT_NAME'))].close()
+            del names[message.get(self.CONFIG.get('ACCOUNT_NAME'))]
+            return
+        # Иначе отправляем Bad request
         else:
-            return {
+            _response = {
                 self.CONFIG.get('RESPONSE'): 400,
                 self.CONFIG.get('ERROR'): 'Bad Request'
             }
-        # byte_str = server.serializer_to_byte(bad_request, self.CONFIG)
-        # client.send_messages(self.client_socket, byte_str)
-        # LOG.debug(f'Отправленно сообщение: {message}')
-
-    @Log()
-    def send(self, message, to_client):
-        byte_str = self.serializer_to_byte(message, CONFIGS)
-        self.send_messages(to_client, byte_str)
-
+            self.send(_response, client)
+            clients.remove(client)
+            client.close()
+            return
 
 
     @Log()
@@ -78,8 +98,8 @@ class Server(ClientServer):
         Метод отправки определенному клиенту.
         На входе: сообщение, имя кому отправить, список слушающих сокетов
         """
-        if message.get('DESTINATION') in names and names[message.get('DESTINATION')] in listen_socks:
-            self.send(message, names[message.get('DESTINATION')])
+        if message[self.CONFIG.get('DESTINATION')] in names and names[message[self.CONFIG.get('DESTINATION')]] in listen_socks:
+            self.send(message, names[message[self.CONFIG.get('DESTINATION')]])
             LOG.info('f Отправленно сообщение пользователю message.get("DESTINATION") '
                      f'от пользователя:  {message.get("SENDER")}')
         elif message.get('DESTINATION') in names and names[message.get('DESTINATION')] not in listen_socks:
@@ -88,22 +108,28 @@ class Server(ClientServer):
             LOG.error(f'Пользователь {message.get("DESTINATION")} не зарегистрирован на сервере, '
                       f'отправка сообщения невозможна.')
 
+
 # @Log()
 def main_server():
     LOG.debug('START APPS server.py')
     CONFIGS = global_configs()
     server = Server()
     client = ClientServer()
+    clients = []
+    messages_list = []
+    # dict off names and for sockets
+    names = {}
+
+
 
     listen_address, listen_port, server_name = client.get_ip_port_on_console()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((listen_address, int(listen_port)))
         s.listen(CONFIGS.get('MAX_CONNECTIONS'))
-        clients = []
-        to_client_message = []
 
-        # set timeout reset with OSError
+        # List clients and queue
+         # set timeout reset with OSError
         s.settimeout(1)
 
         while True:
@@ -126,41 +152,32 @@ def main_server():
 
             # take messages to dict. and send to every clients? if error exclude client.
             if recover_data_lst:
-                for client_with_messages in recover_data_lst:
+                for client_with_message in recover_data_lst:
                     try:
 
                         # append message to list. If not else send bad request.
-                        byte_str = server.get_message(client_with_messages, CONFIGS)
+                        byte_str = server.get_message(client_with_message, CONFIGS)
                         message = server.serializer_off_byte(byte_str, CONFIGS)
 
-                        to_client_message = server.handle_message(message, client, server)
-                        LOG.debug(f'to_client_message = {to_client_message}')
-                        # if to_client_message.get('action') == 'presence':
+                        server.process_client_message(message, messages_list, client_with_message, clients, names)
+                        LOG.debug(f'messages = {message}')
 
                     except ValueError:
-                        LOG.debug(f'Клиент {client_with_messages} отключился от сервера')
-                        clients.remove(client_with_messages)
+                        LOG.debug(f'Клиент {client_with_message} отключился от сервера')
+                        clients.remove(client_with_message)
 
-            if to_client_message and send_data_lst:
-                message = {
-                    CONFIGS.get('RESPONSE'): 200,
-                    CONFIGS.get('ACTION'): 'MESSAGE',
-                    CONFIGS.get('SENDER'): list(to_client_message.keys())[0],
-                    CONFIGS.get('TIME'): time.time(),
-                    CONFIGS.get('MESSAGE_TEXT'): list(to_client_message.values())[0]
-                }
-                to_client_message.pop(list(to_client_message.keys())[0])
-                for waiting_client in send_data_lst:
+
+                for message_to_client in messages_list:
                     try:
 
-                        server.send(message, waiting_client)
+                        server.process_messages(message_to_client, names, send_data_lst)
+                        LOG.debug(f'Отправленно сообщение: {message_to_client}')
 
-                        LOG.debug(f'Отправленно сообщение: {message}')
                     except (ValueError, BrokenPipeError):
-                        LOG.debug(f'Клиент {client_with_messages} отключился от сервера')
-                        waiting_client.close()
-                        clients.remove(client_with_messages)
-
+                        LOG.info(f'Клиент {message_to_client["DESTINATION"]} отключился от сервера')
+                        clients.remove(names[message_to_client['DESTINATION']])
+                        del names[message_to_client['DESTINATION']]
+                messages_list.clear()
 
 if __name__ == '__main__':
     main_server()

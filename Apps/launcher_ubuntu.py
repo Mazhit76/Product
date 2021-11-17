@@ -14,7 +14,6 @@ PYTHON_PATH = sys.executable
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 CLIENTS_COUNT = 3
 
-
 def get_subprocess(file_with_args):
     sleep(0.2)
     file_full_path = f"{PYTHON_PATH} {BASE_PATH}/{file_with_args}"
@@ -22,23 +21,20 @@ def get_subprocess(file_with_args):
     return subprocess.Popen(args, preexec_fn=os.setpgrp)
 
 
-P_LIST = []
+process = []
 while True:
-    TEXT_FOR_INPUT = f"Запустить {CLIENTS_COUNT} клиентов и сервер (s) / Закрыть клиентов (x) / Выйти (q): "
-    USER = input(TEXT_FOR_INPUT)
+    TEXT_FOR_INPUT = "Выберите действие: q - выход, s - запустить сервер и клиенты, x - закрыть все окна: "
+    action = input(TEXT_FOR_INPUT)
 
-    if USER == "q":
+    if action == "q":
         break
-    elif USER == "s":
-
-        P_LIST.append(get_subprocess("server.py"))
+    elif action == "s":
+        process.append(get_subprocess("server.py"))
 
         for i in range(CLIENTS_COUNT):
-            P_LIST.append(get_subprocess("client.py"))
+            process.append(get_subprocess(f"client.py -n test{i+1}"))
 
-        print(f'Число запущенных клиентских скриптов: {CLIENTS_COUNT}')
-
-    elif USER == "x":
-        while P_LIST:
-            victim = P_LIST.pop()
+    elif action == "x":
+        while process:
+            victim = process.pop()
             os.killpg(victim.pid, signal.SIGINT)
