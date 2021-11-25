@@ -19,6 +19,7 @@ class DataTests:
     test_message_server_ok = dict(response=200)
     byte_message_server_ok: bytes = b"{'response': 200}"
     test_message_server_err = {'response': 400, 'ERROR': 'Bad Request'}
+    test_message_server_err_bad_user = {'response': 400, 'ERROR': 'Username is already takenBad Request'}
     byte_test_message_server_err = b"{response': 400, 'ERROR': 'Bad Request'}"
     test_message_client_to_server = {'action': 'presence', 'time': 12345,
                                           'user': {'account_name': 'Guest'}}

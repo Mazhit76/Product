@@ -20,13 +20,13 @@ PARAMS = {'hosts': '127.0.0.1', 'port': 7777}
 
 logger = logging.getLogger('server')
 formatter = logging.Formatter('%(levelname)-15s %(asctime)s %(message)s')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # Create file handler log with rotation big file
 
 fl = logging.FileHandler(PATH, mode='w', encoding='utf-8')
-fl.setLevel(logging.DEBUG)
+fl.setLevel(logging.INFO)
 fl.setFormatter(formatter)
 
 
@@ -34,17 +34,17 @@ fl.setFormatter(formatter)
 # Create stream handler log
 
 sl = logging.StreamHandler(sys.stderr)
-sl.setLevel(logging.DEBUG)
+sl.setLevel(logging.INFO)
 sl.setFormatter(formatter)
 
 
 # Create handler TimeRotationHandler and RotatingFileHandler
 
 handler_time = TimedRotatingFileHandler(PATH, when='D')   # Every day rotation file
-handler_time.setLevel(logging.WARNING)
+handler_time.setLevel(logging.INFO)
 handler_time.setFormatter(formatter)
 handler_file = RotatingFileHandler(PATH, maxBytes=99999,  backupCount=10, encoding='utf-8')
-handler_file.setLevel(logging.WARNING)
+handler_file.setLevel(logging.INFO)
 handler_file.setFormatter(formatter)
 
 

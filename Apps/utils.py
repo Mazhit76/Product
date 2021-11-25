@@ -4,7 +4,7 @@ import logging
 import os.path
 import re
 from json.decoder import JSONDecodeError
-
+from Apps.metaclasses import ServerMaker
 import sys
 import time
 
@@ -25,8 +25,8 @@ def assert_ip(ip):
         raise TypeError('You input IP address unsuitable!!!')
     return True
 
-class ClientServer:
-    __slots__ = ('CONFIG', 'is_server', 'config_keys', 'client_socket', 'client_address', 'server')
+class ClientServer():
+    __slots__ = ['CONFIG', 'is_server', 'config_keys', 'client_socket', 'client_address', 'server', 'name']
     def __init__(self, is_server=False):
         self.CONFIG = {}
         self.is_server = is_server
@@ -158,12 +158,17 @@ class ClientServer:
             # self.CONFIG = self.load_config()
             # server_address = self.CONFIG.get('DEFAULT_IP_ADDRESS')
             # server_port = self.CONFIG.get('DEFAULT_IP_PORT')
-            return server_address, server_port
+            return server_address, server_port, None
         except ValueError:
             LOG.error('Порт должен находится в переделах о 1024 до 65535')
             raise ValueError('Порт должен находится в переделах о 1024 до 65535')
 
     @Log()
     def send(self, message, to_client):
+        """
+        :param message: message to client
+        :param to_client: client socket to server
+        :return: None
+        """
         byte_str = self.serializer_to_byte(message, self.CONFIG)
         self.send_messages(to_client, byte_str)

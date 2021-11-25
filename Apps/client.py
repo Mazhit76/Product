@@ -6,8 +6,12 @@ import threading
 
 import sys
 import time
+
+from utils import ClientServer
 from decos import Log
 from errors import IncorrectDataRecivedError
+from metaclasses import ClientMaker
+
 sys.path.append('../')
 sys.path.append(os.path.join(os.getcwd(), '..'))
 sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Lesson_serv_app/Product/Logs')
@@ -15,7 +19,7 @@ sys.path.append('/home/mazhit76/Рабочий стол/Lession/client_server/Le
 from utils import ClientServer
 
 LOG = logging.getLogger('client')
-
+from utils import *
 
 @Log()
 def global_configs():
@@ -25,13 +29,13 @@ def global_configs():
     return CONFIGS
 
 
-class Client(ClientServer):
-    __slots__ = ('CONFIG', 'is_server', 'config_keys')
+class Client(metaclass=ClientMaker):
+    # __slots__ = ('CONFIG', 'is_server', 'config_keys')
 
-    def __init__(self, is_server=False, CONFIG=global_configs()):
+    def __init__(self, is_server=False):
         super().__init__()
         self.is_server = is_server
-        self.CONFIG = CONFIG
+        self.CONFIG = global_configs()
 
     @Log()
     def create_presence_message(self, account_name):
@@ -86,10 +90,10 @@ class Client(ClientServer):
     def print_help(self):
         """Функция выводящяя справку по использованию"""
 
-    print('Поддерживаемые команды:')
-    print('message - отправить сообщение. Кому и текст будет запрошены отдельно.')
-    print('help - вывести подсказки по командам')
-    print('exit - выход из программы')
+        print('Поддерживаемые команды:')
+        print('message - отправить сообщение. Кому и текст будет запрошены отдельно.')
+        print('help - вывести подсказки по командам')
+        print('exit - выход из программы')
 
     @Log()
     def user_interactive(self, sock, username):
@@ -103,7 +107,7 @@ class Client(ClientServer):
                 self.print_help()
             elif command == 'exit':
                 presence_message = self.create_presence_message(username)
-                byte_str = self.serializer_to_byte(presence_message, CONFIGS)
+                byte_str = ClientServer.serializer_to_byte(presence_message, CONFIGS)
                 self.send_messages(sock, byte_str)
                 print('Завершение соединения.')
                 LOG.info('Завершение работы по команде пользователя.')
@@ -118,8 +122,8 @@ class Client(ClientServer):
         """Функция - обработчик сообщений других пользователей, поступающих с сервера"""
         while True:
             try:
-                byte_str = self.get_message(sock, CONFIGS)
-                message = self.serializer_off_byte(byte_str, CONFIGS)
+                byte_str = ClientServer.get_message(sock, CONFIGS)
+                message = ClientServer.serializer_off_byte(byte_str, CONFIGS)
                 if self.CONFIG.get('ACTION') in message and message[self.CONFIG.get('ACTION')] == self.CONFIG.get(
                         'MESSAGE') and \
                         self.CONFIG.get('SENDER') in message and self.CONFIG.get('DESTINATION') in message \
@@ -161,12 +165,12 @@ def main():
     transport.connect((server_address, server_port))
 
     presence_message = client.create_presence_message(client_name)
-    byte_str = server.serializer_to_byte(presence_message, CONFIGS)
-    server.send_messages(transport, byte_str)
+    byte_str = ClientServer.serializer_to_byte(presence_message, CONFIGS)
+    ClientServer.send_messages(transport, byte_str)
 
     try:
-        byte_str = server.get_message(transport, CONFIGS)
-        response = server.serializer_off_byte(byte_str, CONFIGS)
+        byte_str = ClientServer.get_message(transport, CONFIGS)
+        response = ClientServer.serializer_off_byte(byte_str, CONFIGS)
         handled_response = client.handle_responce(response)
         LOG.debug(f'Установленно соединение. Ответ от сервера: {response} handled_response: {handled_response}')
     except(ValueError, json.JSONDecodeError):

@@ -1,12 +1,11 @@
-
 from unittest import TestCase, main
-from unittest.mock import patch
+from unittest.mock import patch, Mock, MagicMock
 
+import utils
 from Apps.server import Server
 from Apps.client import Client
 from Apps.utils import ClientServer
 from data_for_tests import DataTests
-
 
 
 class TestSocket:
@@ -59,34 +58,46 @@ class TestMyCase(TestCase):
                          'Default ip port is not 7777')
 
     def test_message_from_client_answer_ok(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_good,
-                                                             self.test_server, self.test_client),
-                             self.data_test.test_message_server_ok)
+        Server.send = MagicMock()
+        Server.send.return_value = None
+        self.test_server.process_client_message(self.data_test.test_message_client_to_server_good, [],
+                                                self.data_test.clint_socket_with_default_ip_address_port, [], {})
+        self.test_server.send.assert_called_with({'response': 200},
+                                                 self.data_test.clint_socket_with_default_ip_address_port)
 
-    # @patch.object(ClientServer, 'send_messages', {'response': 400, 'ERROR': 'Bad Request'})
+
     def _test_message_from_client_answer_bad_action(self):
-            self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_action,
-                                                             self.test_server, self.test_client),
-                             self.data_test.test_message_server_err)
+        with self.assertRaises(ValueError) as err:
+            Server.send = MagicMock()
+            Server.send.return_value = None
+            self.test_server.process_client_message(self.data_test.test_message_client_to_server_bag_action, [],
+                                                    self.data_test.clint_socket_with_default_ip_address_port, [], {})
+            self.assertEqual('Не существует клиент, кому отправлять Bad request', str(err.exception))
 
     def _test_message_from_client_answer_bad_time(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_time,
-                                                             self.test_server, self.test_client),
-                             self.data_test.test_message_server_err)
+        with self.assertRaises(ValueError) as err:
+            Server.send = MagicMock()
+            Server.send.return_value = None
+            self.test_server.process_client_message(self.data_test.test_message_client_to_server_bag_time, [],
+                                                    self.data_test.clint_socket_with_default_ip_address_port, [], {})
+            self.assertEqual('There is no client in the list', err.exception.args[0])
 
     def _test_message_from_client_answer_time_bad_type(self):
         self.assertIsInstance(self.data_test.test_message_client_to_server_bag_time['time'], float, 'Test date type '
                                                                                                     'is not float!!!')
 
     def _test_message_from_client_answer_bad_user(self):
-        self.assertDictEqual(self.test_server.handle_message(self.data_test.test_message_client_to_server_bag_user,
-                                                             self.test_server, self.test_client),
-                             self.data_test.test_message_server_err)
-
+        with self.assertRaises(ValueError) as err:
+            self.test_server.process_client_message(self.data_test.test_message_client_to_server_bag_user, [],
+                                                    self.data_test.clint_socket_with_default_ip_address_port, [], {})
+            self.assertEqual('Name client is bad!!!', str(err.exception))
+            self.test_server.send.assert_called_with(self.data_test.test_message_server_err_bad_user,
+                                                     self.data_test.clint_socket_with_default_ip_address_port)
 
     def test_send_byte_exchange(self):
-        self.assertIsInstance(self.client_server.serializer_to_byte(self.data_test.test_message_server_ok, self.data_from_config),
-                              bytes)
+        self.assertIsInstance(
+            self.client_server.serializer_to_byte(self.data_test.test_message_server_ok, self.data_from_config),
+            bytes)
 
     @patch.object(ClientServer, 'serializer_to_byte', b'str', spec=ClientServer)
     @patch.object(ClientServer, 'send_messages', 'ok', spec=ClientServer)
@@ -94,14 +105,13 @@ class TestMyCase(TestCase):
         self.assertEqual(self.client_server.serializer_to_byte, b'str')
         self.assertEqual(self.client_server.send_messages, 'ok')
 
-
-
-
     def test_handle_message_server(self):
+        Server.send = MagicMock()
+        Server.send.return_value = None
         self._test_message_from_client_answer_bad_action()
         self._test_message_from_client_answer_bad_time()
         self._test_message_from_client_answer_time_bad_type()
-        # self._test_message_from_client_answer_bad_user()
+        self._test_message_from_client_answer_bad_user()
 
     def _test_load_config_no_empty(self):
         self.assertNotEqual(self.data_from_config, {}, "Output dict from test load_data_from_config is empty")

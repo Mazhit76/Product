@@ -1,4 +1,3 @@
-
 import logging
 import os
 import select
@@ -6,6 +5,8 @@ import socket
 import sys
 import time
 from decos import Log
+from descriptors import Port
+from metaclasses import ServerMaker
 
 sys.path.append(os.path.join(os.getcwd(), '..'))
 
@@ -22,15 +23,20 @@ def global_configs():
     return CONFIGS
 
 
-class Server(ClientServer):
-    __slots__ = ('client_socket', 'client_address', 'server')
+class Server(ClientServer, metaclass=ServerMaker):
+    # __slots__ = ['listen_address', 'name']
+    listen_port = Port()
 
-    def __init__(self, is_server=True, configs=global_configs(), client_socket=None, server=None):
-        super().__init__(server)
-        self.client_socket = client_socket
-        self.server = server
-        self.CONFIG = configs
-        self.server = server
+    def __init__(self, listen_address=None, listen_port=None, is_server=True):
+        super().__init__(is_server)
+        self.listen_address = listen_address
+        self.listen_port = listen_port
+        self.CONFIG = global_configs()
+
+        self.clients = []
+        self.messages_list = []
+        # dict off names and for sockets
+        self.names = {}
 
     @Log()
     def process_client_message(self, message, messages_list, client, clients, names):
@@ -52,17 +58,26 @@ class Server(ClientServer):
             # Если клиент нет в списке, то регистрирум и отправляем сообщение о подключении
             # Иначе удаляем и отправляем ошибку запроса
             if self.CONFIG.get('USER') in message \
+                    and (message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')]) != '' \
+                    and isinstance(message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')], str) \
                     and (message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')] not in names.keys()):
                 names[message[self.CONFIG.get('USER')][self.CONFIG.get('ACCOUNT_NAME')]] = client
                 self.send({self.CONFIG.get('RESPONSE'): 200}, client)
             else:
-                _response = {
-                    self.CONFIG.get('RESPONSE'): 400,
-                    self.CONFIG.get('ERROR'): 'Username is already takenBad Request'
-                }
-                self.send(_response, client)
-                clients.remove(client)
-                client.close()
+                try:
+                    _response = {
+                        self.CONFIG.get('RESPONSE'): 400,
+                        self.CONFIG.get('ERROR'): 'Username is already takenBad Request'
+                    }
+                    self.send(_response, client)
+                    clients.remove(client)
+                    client.close()
+                except AttributeError:
+                    LOG.error('Не существует клиент, кому отправлять Bad request')
+                except ValueError:
+                    LOG.error('Name client is bad!!!')
+                    raise ValueError('Name client is bad!!!')
+
             return
         #     Если это сообщение, то добавляем в очередь сообщений. Овета клиенту нет.
         elif self.CONFIG.get('ACTION') in message \
@@ -76,9 +91,12 @@ class Server(ClientServer):
         # Если поступило сообщение о выходе клиента удаляем его
         elif self.CONFIG.get('ACTION') in message and message[self.CONFIG.get('ACTION')] == self.CONFIG.get("EXIT") \
                 and (self.CONFIG.get('ACCOUNT_NAME') in message):
-            clients.remove(names[message[self.CONFIG.get('ACCOUNT_NAME')]])
-            names[message.get(self.CONFIG.get('ACCOUNT_NAME'))].close()
-            del names[message.get(self.CONFIG.get('ACCOUNT_NAME'))]
+            try:
+                clients.remove(names[message[self.CONFIG.get('ACCOUNT_NAME')]])
+                names[message.get(self.CONFIG.get('ACCOUNT_NAME'))].close()
+                del names[message.get(self.CONFIG.get('ACCOUNT_NAME'))]
+            except ValueError:
+                LOG.error('Отсутствует список  clients  для удаления.')
             return
         # Иначе отправляем Bad request
         else:
@@ -86,11 +104,16 @@ class Server(ClientServer):
                 self.CONFIG.get('RESPONSE'): 400,
                 self.CONFIG.get('ERROR'): 'Bad Request'
             }
-            self.send(_response, client)
-            clients.remove(client)
-            client.close()
-            return
+            try:
+                self.send(_response, client)
+                clients.remove(client)
+                client.close()
+            except AttributeError:
+                LOG.error('Не существует клиент, кому отправлять Bad request')
+            except ValueError:
+                raise ValueError('There is no client in the list')
 
+            return
 
     @Log()
     def process_messages(self, message, names, listen_socks):
@@ -98,7 +121,8 @@ class Server(ClientServer):
         Метод отправки определенному клиенту.
         На входе: сообщение, имя кому отправить, список слушающих сокетов
         """
-        if message[self.CONFIG.get('DESTINATION')] in names and names[message[self.CONFIG.get('DESTINATION')]] in listen_socks:
+        if message[self.CONFIG.get('DESTINATION')] in names and names[
+            message[self.CONFIG.get('DESTINATION')]] in listen_socks:
             self.send(message, names[message[self.CONFIG.get('DESTINATION')]])
             LOG.info('f Отправленно сообщение пользователю message.get("DESTINATION") '
                      f'от пользователя:  {message.get("SENDER")}')
@@ -108,76 +132,68 @@ class Server(ClientServer):
             LOG.error(f'Пользователь {message.get("DESTINATION")} не зарегистрирован на сервере, '
                       f'отправка сообщения невозможна.')
 
-
-# @Log()
-def main_server():
-    LOG.debug('START APPS server.py')
-    CONFIGS = global_configs()
-    server = Server()
-    client = ClientServer()
-    clients = []
-    messages_list = []
-    # dict off names and for sockets
-    names = {}
-
-
-
-    listen_address, listen_port, server_name = client.get_ip_port_on_console()
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((listen_address, int(listen_port)))
-        s.listen(CONFIGS.get('MAX_CONNECTIONS'))
-
+    def init_socket(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind((self.listen_address, int(self.listen_port)))
         # List clients and queue
-         # set timeout reset with OSError
-        s.settimeout(1)
+        # set timeout reset with OSError
+        self.sock.settimeout(1)
+        self.sock.listen(CONFIGS.get('MAX_CONNECTIONS'))
+
+    def main_loop(self):
+        self.init_socket()
 
         while True:
             try:
-                client.client_socket, client.client_address = s.accept()
+                client_socket, client_address = self.sock.accept()
             except OSError:
                 pass
             else:
-                LOG.debug(f'Установлено соедение с Клиентом {client.client_address}')
-                clients.append(client.client_socket)
-
+                LOG.debug(f'Установлено соедение с Клиентом {client_address}')
+                self.clients.append(client_socket)
             recover_data_lst = []
             send_data_lst = []
             err_lst = []
             try:
-                if clients:
-                    recover_data_lst, send_data_lst, err_lst = select.select(clients, clients, [], 0)
+                if self.clients:
+                    recover_data_lst, send_data_lst, err_lst = select.select(self.clients, self.clients, [], 0)
             except OSError:
                 pass
-
-            # take messages to dict. and send to every clients? if error exclude client.
+            # take messages to dict. and send to every self.clients? if error exclude client.
             if recover_data_lst:
                 for client_with_message in recover_data_lst:
                     try:
-
                         # append message to list. If not else send bad request.
-                        byte_str = server.get_message(client_with_message, CONFIGS)
-                        message = server.serializer_off_byte(byte_str, CONFIGS)
-
-                        server.process_client_message(message, messages_list, client_with_message, clients, names)
+                        byte_str = self.get_message(client_with_message, CONFIGS)
+                        message = self.serializer_off_byte(byte_str, CONFIGS)
+                        self.process_client_message(message, self.messages_list, client_with_message,
+                                                    self.clients, self.names)
                         LOG.debug(f'messages = {message}')
-
                     except ValueError:
                         LOG.debug(f'Клиент {client_with_message} отключился от сервера')
-                        clients.remove(client_with_message)
-
-
-                for message_to_client in messages_list:
+                        self.clients.remove(client_with_message)
+                for message_to_client in self.messages_list:
                     try:
-
-                        server.process_messages(message_to_client, names, send_data_lst)
+                        self.process_messages(message_to_client, self.names, send_data_lst)
                         LOG.debug(f'Отправленно сообщение: {message_to_client}')
-
                     except (ValueError, BrokenPipeError):
                         LOG.info(f'Клиент {message_to_client["DESTINATION"]} отключился от сервера')
-                        clients.remove(names[message_to_client['DESTINATION']])
-                        del names[message_to_client['DESTINATION']]
-                messages_list.clear()
+                        self.clients.remove(self.names[message_to_client['DESTINATION']])
+                        del self.names[message_to_client['DESTINATION']]
+                self.messages_list.clear()
+
+@Log()
+def main_server():
+    LOG.debug('START APPS server.py')
+    CONFIGS = global_configs()
+    client = ClientServer()
+
+    listen_address, listen_port, server_name = client.get_ip_port_on_console()
+    server = Server(listen_address, listen_port)
+    LOG.info(f'Запущен сервер, на адресе: {listen_address}, порт для подключений {listen_port}')
+
+    server.main_loop()
+
 
 if __name__ == '__main__':
     main_server()
