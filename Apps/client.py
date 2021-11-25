@@ -29,7 +29,7 @@ def global_configs():
     return CONFIGS
 
 
-class Client(metaclass=ClientMaker):
+class Client(ClientServer, metaclass=ClientMaker):
     # __slots__ = ('CONFIG', 'is_server', 'config_keys')
 
     def __init__(self, is_server=False):
@@ -107,7 +107,7 @@ class Client(metaclass=ClientMaker):
                 self.print_help()
             elif command == 'exit':
                 presence_message = self.create_presence_message(username)
-                byte_str = ClientServer.serializer_to_byte(presence_message, CONFIGS)
+                byte_str = self.serializer_to_byte(presence_message, CONFIGS)
                 self.send_messages(sock, byte_str)
                 print('Завершение соединения.')
                 LOG.info('Завершение работы по команде пользователя.')
@@ -122,8 +122,8 @@ class Client(metaclass=ClientMaker):
         """Функция - обработчик сообщений других пользователей, поступающих с сервера"""
         while True:
             try:
-                byte_str = ClientServer.get_message(sock, CONFIGS)
-                message = ClientServer.serializer_off_byte(byte_str, CONFIGS)
+                byte_str = self.get_message(sock, CONFIGS)
+                message = self.serializer_off_byte(byte_str, CONFIGS)
                 if self.CONFIG.get('ACTION') in message and message[self.CONFIG.get('ACTION')] == self.CONFIG.get(
                         'MESSAGE') and \
                         self.CONFIG.get('SENDER') in message and self.CONFIG.get('DESTINATION') in message \
@@ -165,12 +165,12 @@ def main():
     transport.connect((server_address, server_port))
 
     presence_message = client.create_presence_message(client_name)
-    byte_str = ClientServer.serializer_to_byte(presence_message, CONFIGS)
-    ClientServer.send_messages(transport, byte_str)
+    byte_str = client.serializer_to_byte(presence_message, CONFIGS)
+    client.send_messages(transport, byte_str)
 
     try:
-        byte_str = ClientServer.get_message(transport, CONFIGS)
-        response = ClientServer.serializer_off_byte(byte_str, CONFIGS)
+        byte_str = client.get_message(transport, CONFIGS)
+        response = client.serializer_off_byte(byte_str, CONFIGS)
         handled_response = client.handle_responce(response)
         LOG.debug(f'Установленно соединение. Ответ от сервера: {response} handled_response: {handled_response}')
     except(ValueError, json.JSONDecodeError):

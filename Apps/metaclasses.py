@@ -79,7 +79,7 @@ class ClientMaker(type):
             if command in methods:
                 raise TypeError('The use of a forbidden method was detected in the class')
         #     Calling get_message or send_message from utils is considered correct socket usage
-        if 'get_message' in clsdict or 'send_message' in methods:
+        if 'create_message' in clsdict and 'message_from_server' in clsdict:
             pass
         else:
             raise TypeError('There are no calls to functions that work with sockets')
